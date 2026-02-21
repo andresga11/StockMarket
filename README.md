@@ -59,3 +59,127 @@ Each position uniquely represents:
 
 Uniqueness is enforced on:
 
+`(user_id, stock_symbol)`
+
+
+### Attributes
+
+- `sharesOwned` (BigDecimal, required, >= 0)
+- `averageCostPerShare` (optional but recommended)
+- `updatedAt` (timestamp)
+
+### Supported Functions
+
+- Retrieve all positions for a user
+- Retrieve position by `(user, stock)`
+- Compute portfolio market value
+
+---
+
+## 4️⃣ Trades (Transaction History)
+
+Trades are immutable records of buy/sell events.
+
+Each trade belongs to exactly:
+
+- One user
+- One stock
+
+### Attributes
+
+- `type` (BUY / SELL)
+- `shares` (BigDecimal, required, > 0)
+- `executionPrice` (BigDecimal, required)
+- `totalValue` (shares × price)
+- `executedAt` (timestamp, required)
+- `status` (FILLED / REJECTED)
+
+### Supported Functions
+
+- Retrieve trade history for a user
+- Filter trades by stock symbol and date range
+
+---
+
+## 5️⃣ Balance Movements (Ledger) — Optional but Recommended
+
+Tracks all cash movements for auditing and traceability.
+
+Each ledger entry belongs to exactly one user.
+
+### Attributes
+
+- `type` (DEPOSIT, WITHDRAWAL, BUY_DEBIT, SELL_CREDIT, FEE)
+- `amount` (BigDecimal, required)
+- `createdAt` (timestamp)
+- `referenceTradeId` (optional foreign key)
+
+---
+
+# 💼 Business Rules
+
+## Buy Stock
+
+The system shall allow a user to buy a stock using their available cash balance.
+
+### Validations
+
+- User exists
+- Stock exists
+- `shares > 0`
+- User has sufficient balance for `(shares × currentPrice)`
+
+### Atomic Operations
+
+1. Create Trade (BUY)
+2. Decrease user balance
+3. Upsert Position:
+   - Increase shares
+   - Update average cost (if tracked)
+
+---
+
+## Sell Stock
+
+The system shall allow a user to sell shares they own.
+
+### Validations
+
+- `shares > 0`
+- User owns sufficient shares in Position
+
+### Atomic Operations
+
+1. Create Trade (SELL)
+2. Increase user balance
+3. Decrease Position shares  
+   - Delete position if shares becomes 0
+
+---
+
+# 🔒 Integrity & Constraints
+
+- `User.username` must be unique and not null
+- `Stock.symbol` must be unique and not null
+- `Position` must be unique on `(user_id, stock_symbol)`
+- Position shares cannot be negative
+- Monetary fields use `BigDecimal` with consistent scale
+- Trades are append-only (no updates/deletes)
+- Buy/sell operations must be transactional
+
+---
+
+# 📈 Reporting & Queries
+
+The system must support:
+
+- Dashboard view (user info + balance + portfolio)
+- Holdings with market value and unrealized P/L
+- Trade history per user
+- Trade history per stock
+- Top movers (optional)
+- Admin stock management (optional)
+
+---
+
+
